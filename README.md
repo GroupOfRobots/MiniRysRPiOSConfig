@@ -1,0 +1,1 @@
+MiniRys RaspberryPi OS config

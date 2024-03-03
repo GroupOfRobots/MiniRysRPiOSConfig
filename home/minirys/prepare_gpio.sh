@@ -1,0 +1,1 @@
+/home/minirys/prepare_gpio.sh
