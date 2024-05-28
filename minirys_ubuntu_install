@@ -1,0 +1,145 @@
+install ros2 from debian packages
+
+sudo apt install git
+mkdir minirys_ws && cd minirys_ws && git clone MiniRysRobotSoftware (rename src)
+git submodule update --init --recursive
+
+## Networking
+apt install net-tools
+apt install openssh-server
+
+## DT config
+apt install raspi-config
+git clone https://github.com/GroupOfRobots/MiniRysRPiOSConfig.git
+
+## uzupełnienie /boot/firmware/config.txt brakującymi liniami odnośnie spi, pwm, uart (zalecane sudo nano)
+cp MiniRysRPiOSConfig/boot/config.txt /boot/firmware/config.txt  
+## przeniesienie skryptu prepare_gpio.sh do /home/minirys
+cp MiniRysRPiOSConfig/home/minirys/prepare_gpio.sh /home/minirys/prepare_gpio.sh
+## przeniesienie pliku z uprawnieniami grup 
+cp MiniRysRPiOSConfig/etc/udev/rules.d/99-com.rules /etc/udev/rules.d/99-com.rules
+
+## rc.local setup
+sudo nano /etc/rc.local
+sudo chmod +x /etc/rc.local
+sudo nano /etc/systemd/system/rc-local.service
+
+## Add following to file 
+[Unit]
+Description=Local Startup Script
+
+[Service]
+Type=simple
+ExecStart=/etc/rc.local
+
+[Install]
+WantedBy=multi-user.target
+
+sudo chmod 644 /etc/systemd/system/rc-local.service
+sudo systemctl enable rc-local.service
+sudo systemctl start rc-local.service
+sudo systemctl status rc-local.service
+
+## GROUPS
+sudo apt install rpi.gpio-common (groups)
+sudo grpadd gpio
+sudo grpadd i2c
+sudo grpadd spi
+sudo adduser "${USER}" dialout
+sudo adduser "${USER}" gpio
+sudo adduser "${USER}" i2c
+sudo adduser "${USER}" spi
+sudo adduser "${USER}" video
+
+sudo reboot
+
+##edit bash.rc and add NAMESPACE env variable 
+# Unique namespace for MiniRys robots
+export NAMESPACE="minirys3"
+
+## Motors Library
+# download latest version for arm64 from here https://github.com/WiringPi/WiringPi and install a dpkg
+sudo apt install ./wiringpi_3.4_arm64.deb
+
+## Camera
+sudo apt install python3-prctl
+sudo apt install pip
+
+## How to picamera2 and libcamera on ubuntu 22.04
+https://github.com/raspberrypi/picamera2/issues/563
+
+
+## Install libcamera
+
+sudo apt install -y libcamera-dev libepoxy-dev libjpeg-dev libtiff5-dev libpng-dev python3 python3-dev
+sudo apt install libcamera-tools g++
+sudo apt install -y python3-pip git python3-jinja2
+sudo apt install -y libboost-dev
+sudo apt install -y libgnutls28-dev openssl libtiff5-dev pybind11-dev liblttng-ust-dev
+sudo apt install -y qtbase5-dev libqt5core5a libqt5gui5 libqt5widgets5
+# NOTE - for Ubuntu 22.04, need to install meson via pip because the version apt gets is too old
+sudo apt install -y cmake ninja-build 
+sudo apt install -y python3-yaml python3-ply python3-pip libyaml-dev
+sudo pip3 install --user meson # needs sudo to be on sudo pythonpath
+PATH=$PATH:/home/$USER/.local/bin/
+sudo apt install -y libglib2.0-dev libgstreamer-plugins-base1.0-dev
+
+cd 
+git clone https://github.com/raspberrypi/libcamera.git
+cd libcamera
+meson setup build --buildtype=release -Dpipelines=rpi/vc4,rpi/pisp -Dipas=rpi/vc4,rpi/pisp -Dv4l2=true -Dgstreamer=enabled -Dtest=false -Dlc-compliance=disabled -Dcam=disabled -Dqcam=disabled -Ddocumentation=disabled -Dpycamera=enabled
+ninja -C build   # use -j 2 on Raspberry Pi 3 or earlier devices
+sudo ninja -C build install
+
+## Install rpicam-apps
+
+sudo apt install -y libboost-program-options-dev libdrm-dev libexif-dev
+cd 
+git clone https://github.com/raspberrypi/rpicam-apps.git --branch v1.4.4
+cd rpicam-apps
+# Choose the 'lite' option
+meson setup build -Denable_libav=false -Denable_drm=true -Denable_egl=false -Denable_qt=false -Denable_opencv=false -Denable_tflite=false
+meson compile -C build # use -j1 on Raspberry Pi 3 or earlier devices
+sudo /home/$USER/.local/bin/meson install -C build
+sudo ldconfig # this is only necessary on the first build
+
+## Install libkms dependencies
+
+sudo apt update && sudo apt upgrade
+sudo apt install -y  libfmt-dev libdrm-dev libfmt-dev
+# Install kmsxx
+git clone https://github.com/tomba/kmsxx.git
+cd kmsxx/
+git submodule update --init
+meson build -Dpykms=enabled
+sudo ninja -C build install
+
+## Install picamera
+
+pip install --upgrade pip
+pip install wheel
+pip install rpi-libcamera rpi-kms picamera2
+
+## cd minirys_ws && source /opt/ros/humble/setup.bash && colcon-build
+
+## Nav2
+
+sudo apt install ros-humble-navigation2
+sudo apt install ros-humble-nav2-bringup
+sudo apt install ros-humble-slam-toolbox
+sudo apt install ros-humble-joint-state-publisher
+sudo apt install ros-humble-xacro
+
+git clone https://github.com/GroupOfRobots/minirys_nav2_ws.git
+
+## RMW Cyclone 
+
+sudo apt install ros-humble-rmw-cyclonedds-cpp
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+
+## Time synchronization
+
+sudo apt install chrony
+
+
+
